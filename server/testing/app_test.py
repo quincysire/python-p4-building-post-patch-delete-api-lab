@@ -40,21 +40,36 @@ class TestApp:
 
         with app.app_context():
 
-            mb = Bakery.query.filter_by(id=1).first()
+            mb = Bakery.query.get(1)
+
+            if mb is None:
+                # If the bakery with id=1 doesn't exist, create one for testing
+                mb = Bakery(id=1, name="Initial Bakery")
+                db.session.add(mb)
+                db.session.commit()
+
+            # Update the bakery's name
             mb.name = "ABC Bakery"
-            db.session.add(mb)
             db.session.commit()
+
+            # Re-query the database to get the updated state of mb
+            updated_mb = Bakery.query.get(1)
 
             response = app.test_client().patch(
                 '/bakeries/1',
-                data = {
+                data={
                     "name": "Your Bakery",
                 }
             )
 
-            assert(response.status_code == 200)
-            assert(response.content_type == 'application/json')
-            assert(mb.name == "Your Bakery")
+            assert response.status_code == 200
+            assert response.content_type == 'application/json'
+
+            # Re-query the database to get the updated state of mb after the patch
+            updated_mb_after_patch = Bakery.query.get(1)
+
+            assert updated_mb_after_patch is not None
+            assert updated_mb_after_patch.name == "Your Bakery"
 
     def test_deletes_baked_goods(self):
         '''can DELETE baked goods through "baked_goods/<int:id>" route.'''
@@ -76,6 +91,6 @@ class TestApp:
                 f'/baked_goods/{af.id}'
             )
 
-            assert(response.status_code == 200)
-            assert(response.content_type == 'application/json')
-            assert(not BakedGood.query.filter_by(name="Apple Fritter").first())
+            assert response.status_code == 200
+            assert response.content_type == 'application/json'
+            assert not BakedGood.query.filter_by(name="Apple Fritter").first()
